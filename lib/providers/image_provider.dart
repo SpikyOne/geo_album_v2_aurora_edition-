@@ -51,7 +51,7 @@ class GalleryProvider extends ChangeNotifier {
       // Определение сканируемой директории с изображениями (по умолчанию Pictures)
       Directory directory;
       if (dirPath != null) { directory = Directory(dirPath); }
-      else { directory = Directory('/storage/emulated/0/Pictures'); }
+      else { directory = Directory('/home/defaultuser/Pictures'); }
 
 
       if (!await directory.exists()) {
