@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=geoalbum
+Comment=Geo Album project.
+Icon=com.geoalbum.geoalbum
+Exec=/usr/bin/com.geoalbum.geoalbum
+X-Nemo-Application-Type=silica-qt5
+
+[X-Application]
+Permissions=Pictures;Internet
+OrganizationName=com.geoalbum
+ApplicationName=geoalbum
