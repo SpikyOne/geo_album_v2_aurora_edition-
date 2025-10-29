@@ -229,7 +229,7 @@ packages:
     source: sdk
     version: "1.9.1"
   path_provider:
-    dependency: transitive
+    dependency: "direct main"
     description: flutter
     source: sdk
     version: "2.1.5"

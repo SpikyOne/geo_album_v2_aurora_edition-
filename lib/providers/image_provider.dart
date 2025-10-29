@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-
+import 'package:path_provider/path_provider.dart';
 
 // Локальные импорты
 import '../models/image_data_model.dart';
@@ -51,7 +51,15 @@ class GalleryProvider extends ChangeNotifier {
       // Определение сканируемой директории с изображениями (по умолчанию Pictures)
       Directory directory;
       if (dirPath != null) { directory = Directory(dirPath); }
-      else { directory = Directory('/home/defaultuser/Pictures'); }
+      
+      else {
+        
+        final List<Directory>? picturesDirs = await getExternalStorageDirectories( type: StorageDirectory.pictures, );
+      
+        if (picturesDirs == null || picturesDirs.isEmpty) { throw Exception('Could not access Pictures directory'); }
+      
+        directory = picturesDirs[0];
+      }
 
 
       if (!await directory.exists()) {

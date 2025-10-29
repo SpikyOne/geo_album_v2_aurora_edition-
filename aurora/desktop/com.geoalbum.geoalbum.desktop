@@ -7,6 +7,6 @@ Exec=/usr/bin/com.geoalbum.geoalbum
 X-Nemo-Application-Type=silica-qt5
 
 [X-Application]
-Permissions=Pictures;Internet
+Permissions=Internet;UserDirs;Pictures;PublicDir
 OrganizationName=com.geoalbum
 ApplicationName=geoalbum
