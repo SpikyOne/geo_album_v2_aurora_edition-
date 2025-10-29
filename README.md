@@ -1,16 +1,46 @@
-# geo_album_v1
+# geo_album_v2_aurora_edition (Мобильное приложение "ГеоАльбом")
 
-A new Flutter project.
+Функциональное мобильное приложение на Flutter под ОС "Аврора", выполняющее функции галереи просмотра фото с возможностью отображения фото на карте.
 
-## Getting Started
+## Скриншоты примеров работы
 
-This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
+## Функциональность приложения
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Данное приложение имеет следующие функциональные особености:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Возможность просмотра фотографий и получения основной информации о них (название файла на устройстве, дата создания файла, GPS-координаты при наличии)
+
+
+
+## Установка
+
+Для установки и сборки данного приложения под ОС "Аврора" необходимо:
+
+1. Клонировать репозиторий:
+```bash
+git clone https://github.com/SpikyOne/geo_album_v2_aurora_edition-.git
+```
+
+2. Перейти в директорию проекта:
+```bash
+cd geo_album_v2_aurora_edition-
+```
+
+3. Установить пакеты зависимостей:
+```bash
+flutter-aurora pub get
+```
+
+4. Запустить сборку приложения:
+```bash
+flutter-aurora run
+```
+
+## Лицензия
+
+В соответствии с условиями олимпиады, даннный проект лицензирован под условиями BSD-3 Clause, файл лицензии приложен к проекту (см. файл [LICENSE](LICENSE)).
+
+## Авторы
+
+В соответствии с условиями олимпиады, список авторов собран в файле  [AUTHORS.md](AUTHORS.md).
