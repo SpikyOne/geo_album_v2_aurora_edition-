@@ -5,9 +5,9 @@
 ## Скриншоты примеров работы
 
 <div align="center">
-  <img src="screenshots/img1.jpg" width="30%">
-  <img src="screenshots/img2.jpg" width="30%">
-  <img src="screenshots/img3.jpg" width="30%">
+  <img src="screenshots/screenshot_1.png" width="30%">
+  <img src="screenshots/screenshot_2.png" width="30%">
+  <img src="screenshots/screenshot_3.png" width="30%">
 </div>
 
 ## Функциональность приложения
