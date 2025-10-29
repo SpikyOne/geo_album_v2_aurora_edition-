@@ -16,8 +16,6 @@ void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
-
-
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
 
