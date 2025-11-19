@@ -34,24 +34,24 @@ class GalleryProvider extends ChangeNotifier {
       _memoryCache[newImage.file.path] = newImage;
 
       // Находим и заменяем в списке по пути файла
-    final index = _images.indexWhere(
-      (img) => img.file.path == oldImage.file.path,
-    );
+      final index = _images.indexWhere(
+        (img) => img.file.path == oldImage.file.path,
+      );
 
-    if (index != -1) {
-      _images[index] = newImage;
-      debugPrint('Изображение обновлено в списке: ${newImage.file.path}');
-    } else {
-      debugPrint('Изображение не найдено в списке для обновления: ${oldImage.file.path}');
-      return false;
-    }
+      if (index != -1) {
+        _images[index] = newImage;
+        debugPrint('Изображение обновлено в списке: ${newImage.file.path}');
+      } else {
+        debugPrint(
+          'Изображение не найдено в списке для обновления: ${oldImage.file.path}',
+        );
+        return false;
+      }
 
       debugPrint(newImage.toString());
 
       notifyListeners();
       return true;
-
-      
     } catch (e) {
       debugPrint('Ошибка обновления изображения: $e');
       return false;
@@ -91,35 +91,78 @@ class GalleryProvider extends ChangeNotifier {
     File croppedFile,
   ) async {
     try {
-      // Сохраняем оригинальный путь
       final originalPath = originalImage.file.path;
 
+      // Сохраняем метаданные ДО удаления оригинала
+      final metadata = await ExifLoader.extractExif(originalImage.file);
+
+      // Создаем уникальное временное имя для избежания кеширования
+      final tempDir = Directory.systemTemp;
+      final tempPath =
+          '${tempDir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      // Копируем обрезанный файл в системную временную директорию
+      await croppedFile.copy(tempPath);
+
       // Удаляем оригинальный файл
-    if (await File(originalPath).exists()) {
-      await File(originalPath).delete();
-    }
+      if (await File(originalPath).exists()) {
+        await File(originalPath).delete();
+      }
 
-    // Перемещаем обрезанный файл на место оригинала
-    await croppedFile.rename(originalPath);
+      // Даем время файловой системе на обработку удаления
+      await Future.delayed(const Duration(milliseconds: 100));
 
-    // Создаем новый объект File с обновленным содержимым
-    final newFile = File(originalPath);
+      // Копируем обрезанный файл из временной директории на место оригинала
+      await File(tempPath).copy(originalPath);
 
-      // Обновляем изображение в кеше с актуальными метаданными
+      // Удаляем временные файлы
+      if (await File(tempPath).exists()) {
+        await File(tempPath).delete();
+      }
+      if (await croppedFile.exists()) {
+        await croppedFile.delete();
+      }
+
+      // Создаем новый объект File и принудительно обновляем его состояние
+      final newFile = File(originalPath);
+
+      // Принудительно обновляем метаданные файла
+      await newFile.stat();
+
+      // Создаем новое изображение с сохраненными метаданными
       final newImage = GalleryImage(
         file: newFile,
         fileName: originalImage.fileName,
-        dateTaken: originalImage.dateTaken,
-        latitude: originalImage.latitude,
-        longitude: originalImage.longitude,
+        dateTaken: metadata['date'] ?? originalImage.dateTaken,
+        latitude: metadata['lat'] ?? originalImage.latitude,
+        longitude: metadata['lon'] ?? originalImage.longitude,
         folderName: originalImage.folderName,
       );
 
-      return await updateImage(originalImage, newImage);
+      debugPrint('Обрезанное изображение сохранено: $originalPath');
+
+      // Принудительно обновляем провайдер
+      final success = await updateImage(originalImage, newImage);
+
+      if (success) {
+        // Принудительно обновляем весь список
+        notifyListeners();
+      }
+
+      return success;
     } catch (e) {
       debugPrint('Ошибка сохранения обрезанного изображения: $e');
       return false;
     }
+  }
+
+  /// Метод для принудительного обновления галереи после первичной инициализации
+  Future<void> refreshGallery({String? dirPath}) async {
+    _loading = true;
+    _loadError = false;
+    notifyListeners();
+
+    await _loadImages(dirPath: dirPath, clearCache: true);
   }
 
   /// Инициализация галереи: проверка разрешений + загрузка
@@ -135,11 +178,17 @@ class GalleryProvider extends ChangeNotifier {
   }
 
   /// Методы получения изображений из директории (рекурсивно)
-  Future<void> _loadImages({String? dirPath}) async {
+  Future<void> _loadImages({String? dirPath, bool clearCache = false}) async {
     try {
       _loading = true;
       _loadError = false;
       notifyListeners();
+
+      // Очищаем кеш при принудительном обновлении
+      if (clearCache) {
+        _images.clear();
+        _memoryCache.clear();
+      }
 
       // Определение сканируемой директории с изображениями (по умолчанию Pictures)
       Directory directory;
@@ -165,7 +214,10 @@ class GalleryProvider extends ChangeNotifier {
         return;
       }
 
-      _images.clear();
+      // Только при первичной загрузке очищаем список
+      if (!clearCache) {
+        _images.clear();
+      }
 
       // Поиск изображений
       await for (var entity in directory.list(

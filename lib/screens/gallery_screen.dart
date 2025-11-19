@@ -44,7 +44,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
   // Метод для обновления данных
   Future<void> _refreshGallery() async {
     final galleryProvider = Provider.of<GalleryProvider>(context, listen: false);
-    await galleryProvider.initGallery();
+    await galleryProvider.refreshGallery();
+    debugPrint('обновлено');
   }
 
 

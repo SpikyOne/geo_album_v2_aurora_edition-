@@ -322,7 +322,10 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
 
         if (success && mounted) {
 
-          await Future.delayed(const Duration(milliseconds: 50));
+          // Принудительно обновляем всю галерею
+        await galleryProvider.refreshGallery();
+
+          await Future.delayed(const Duration(milliseconds: 300));
 
           // Получаем обновленное изображение из провайдера
           final updatedImages = galleryProvider.images.where(
@@ -350,7 +353,14 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
             ),
           );
         } else {
-          throw Exception('Обновленное изображение не найдено');
+          // Если изображение не найдено, возвращаемся в галерею
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Фото обрезано, возврат в галерею'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.pop(context);
         }
         }
         else if (mounted) {
@@ -552,7 +562,7 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
             bottom:
                 MediaQuery.of(
                   context,
-                ).padding.bottom, // Такой же отступ как у навигации
+                ).padding.bottom, 
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
