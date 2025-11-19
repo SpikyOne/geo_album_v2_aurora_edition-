@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Локальные импорты
 import '../providers/navigation_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../models/image_data_model.dart';
-
-
+import '../widgets/action_menu.dart';
 
 // Класс виджета просмотра фотографии
 class PhotoViewScreen extends StatefulWidget {
-
-
   final GalleryImage image;
 
   final int previousIndex; // 0 — галерея, 1 — карта
@@ -31,121 +30,259 @@ class PhotoViewScreen extends StatefulWidget {
 }
 
 class _PhotoViewScreenState extends State<PhotoViewScreen> {
+  // Отображать ли интерфейс
   bool _uiVisible = true;
+
+  // Находимся ли в режиме редактирования
+  bool _isEditing = false;
+
+  // Переключение режима экрана
+  void _toggleEditMode() {
+    setState(() {
+      _isEditing = !_isEditing;
+      _uiVisible = true;
+    });
+  }
+
+  void _handleRename() {
+    // TODO: Реализовать переименование
+    debugPrint('Переименовать: ${widget.image.fileName}');
+  }
+
+  void _handleCrop() {
+    // TODO: Реализовать обрезку
+    debugPrint('Обрезать: ${widget.image.fileName}');
+  }
+
+  void _handleSave() {
+    // TODO: Реализовать сохранение
+    debugPrint('Сохранить: ${widget.image.fileName}');
+    _toggleEditMode(); // Выходим из режима редактирования после сохранения
+  }
+
+  // Обработка тапа по экрану (только в режиме просмотра)
+  void _handleScreenTap() {
+    if (!_isEditing) {
+      setState(() => _uiVisible = !_uiVisible);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.white,
 
       body: Stack(
         children: [
+          // Основное изображение
+          _buildImageViewer(),
 
-          // Отображение самого изображения с возможностью масштабирования
-          GestureDetector(
-            onTapUp: (_) => setState(() => _uiVisible = !_uiVisible),
-            child: Center(
-              child: InteractiveViewer(
+          // Режим ПРОСМОТРА
+          if (!_isEditing) ..._buildViewMode(),
 
-                minScale: 1.0,
-                maxScale: 50.0,
-                clipBehavior: Clip.none,
-                constrained: true, // учитывает размеры child
-                panEnabled: true,
-                scaleEnabled: true,
-                boundaryMargin: EdgeInsets.zero, // не даём выйти за границы
-
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(context).size.height,
-                  child: Image.file(widget.image.file, fit: BoxFit.contain),
-                ),
-              ),
-            ),
-          ),
-
-
-          // Навигационное меню по возврату и переходу на карту
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            bottom: _uiVisible ? 0 : -80, // скрываем вниз
-            left: 0,
-            right: 0,
-
-            child: IgnorePointer(
-              ignoring: !_uiVisible, // блокируем клики, если скрыто
-
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: _uiVisible ? 1 : 0,
-
-                child: CustomBottomNavBar(
-
-                  currentIndex: 1, // фиктивный индекс "просмотра"
-                  onTap: (index) {
-
-                    // Кнопка "Назад" возвращает туда, откуда был вызов просмотра фото
-                    if (index == 0) {
-                      Navigator.pop(context);
-                    }
-
-                    // Кнопка "Карта" перемещает на экран карты через провайдер
-                    else if (index == 1) {
-
-                      final nav = context.read<NavigationProvider>();
-
-                      // Если фото с координатами — запоминаем их
-                      if (widget.image.latitude != null && widget.image.longitude != null) {
-                        nav.pendingCenter = LatLng(widget.image.latitude!, widget.image.longitude!);
-                      }
-
-                      // Переключаемся на экран карты
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        nav.setIndex(1);
-                      });
-
-                      // Просто закрываем экран
-                      Navigator.pop(context);
-                    }
-                  },
-
-                  items: const [
-                    NavButtonData(icon: Icons.arrow_back_rounded, label: 'Назад', ),
-                    NavButtonData(icon: Icons.map_rounded, label: 'Карта'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-
-          // Информация об изображении
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 32,
-            right: 32,
-
-            child: IgnorePointer(
-              ignoring: !_uiVisible,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: _uiVisible ? 1 : 0,
-                child: PhotoInfoHeader(image: widget.image,),
-              ),
-            ),
-
-          ),
+          // Режим РЕДАКТИРОВАНИЯ
+          if (_isEditing) ..._buildEditMode(),
         ],
       ),
     );
+  }
+
+  // Отображение самого изображения с возможностью масштабирования
+  Widget _buildImageViewer() {
+    return GestureDetector(
+      onTapUp: (_) => setState(() => _uiVisible = !_uiVisible),
+      child: Center(
+        child: InteractiveViewer(
+          minScale: 1.0,
+          maxScale: 50.0,
+          clipBehavior: Clip.none,
+          constrained: true, // учитывает размеры child
+          panEnabled: true,
+          scaleEnabled: true,
+          boundaryMargin: EdgeInsets.zero, // не даём выйти за границы
+
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height,
+            child: Image.file(widget.image.file, fit: BoxFit.contain),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Виджеты для режима ПРОСМОТРА
+  List<Widget> _buildViewMode() {
+    return [
+      // Навигационное меню по возврату и переходу на карту
+      AnimatedPositioned(
+        duration: const Duration(milliseconds: 300),
+        bottom: _uiVisible ? 0 : -80, // скрываем вниз
+        left: 0,
+        right: 0,
+
+        child: IgnorePointer(
+          ignoring: !_uiVisible, // блокируем клики, если скрыто
+
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: _uiVisible ? 1 : 0,
+
+            child: CustomBottomNavBar(
+              currentIndex: 1, // фиктивный индекс "просмотра"
+              onTap: (index) {
+                // Кнопка "Назад" возвращает туда, откуда был вызов просмотра фото
+                if (index == 0) {
+                  Navigator.pop(context);
+                }
+                // Кнопка "Карта" перемещает на экран карты через провайдер
+                else if (index == 1) {
+                  final nav = context.read<NavigationProvider>();
+
+                  // Если фото с координатами — запоминаем их
+                  if (widget.image.latitude != null &&
+                      widget.image.longitude != null) {
+                    nav.pendingCenter = LatLng(
+                      widget.image.latitude!,
+                      widget.image.longitude!,
+                    );
+                  }
+
+                  // Переключаемся на экран карты
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    nav.setIndex(1);
+                  });
+
+                  // Просто закрываем экран
+                  Navigator.pop(context);
+                }
+              },
+
+              items: const [
+                NavButtonData(icon: Icons.arrow_back_rounded, label: 'Назад'),
+                NavButtonData(icon: Icons.map_rounded, label: 'Карта'),
+              ],
+            ),
+          ),
+        ),
+      ),
+
+      // Информация об изображении
+      AnimatedPositioned(
+        duration: const Duration(milliseconds: 300),
+        top: MediaQuery.of(context).padding.top + 16,
+        left: 32,
+        right: 32,
+
+        child: IgnorePointer(
+          ignoring: !_uiVisible,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: _uiVisible ? 1 : 0,
+            child: PhotoInfoHeader(image: widget.image),
+          ),
+        ),
+      ),
+
+      // Кнопки редактирования/открыть в другом приложении — справа по центру
+      AnimatedAlign(
+        duration: const Duration(milliseconds: 300),
+        alignment: Alignment.centerRight,
+
+        child: IgnorePointer(
+          ignoring: !_uiVisible,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: _uiVisible ? 1 : 0,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Кнопка с приглашением к редактирования
+                  CustomActionMenu(
+                    orientation: Axis.vertical,
+                    buttonSize: 44,
+                    items: [
+                      MenuItem(Icons.edit_rounded, onTap: _toggleEditMode),
+
+                      MenuItem(
+                        Icons.open_in_new_rounded,
+                        onTap: () {
+                          _openInOtherApps(widget.image.file);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  // Виджеты для режима РЕДАКТИРОВАНИЯ
+  List<Widget> _buildEditMode() {
+    return [
+      
+      // Нижнее меню редактирования (показывается только в режиме редактирования)
+      Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom:
+                MediaQuery.of(
+                  context,
+                ).padding.bottom, // Такой же отступ как у навигации
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Основные действия
+              CustomActionMenu(
+                orientation: Axis.horizontal,
+                buttonSize: 44,
+                items: [
+                  MenuItem(
+                    Icons.drive_file_rename_outline_rounded,
+                    label: 'Переименовать',
+                    onTap: _handleRename,
+                  ),
+
+                  MenuItem(
+                    Icons.crop_rotate_rounded,
+                    label: 'Обрезать',
+                    onTap: _handleCrop,
+                  ),
+                ],
+              ),
+
+              // Кнопка сохранения
+              CustomActionMenu(
+                orientation: Axis.horizontal,
+                buttonSize: 48,
+                items: [
+                  MenuItem(
+                    Icons.save_rounded,
+                    label: 'Сохранить',
+                    onTap: _handleSave,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 }
 
 // Класс для виджета отображения информации об изображении
 class PhotoInfoHeader extends StatelessWidget {
-
   // Просматриваемое изображение
   final GalleryImage image;
 
@@ -153,24 +290,27 @@ class PhotoInfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     // Дата и время съемки
     final hasDateTaken = image.dateTaken != null;
-    final dateTakenStr = hasDateTaken
-        ? DateFormat('d MMMM yyyy', 'ru_RU').format(image.dateTaken!)
-        : 'Неизвестно';
-    final timeTakenStr = hasDateTaken
-        ? DateFormat('HH:mm').format(image.dateTaken!)
-        : '';
+    final dateTakenStr =
+        hasDateTaken
+            ? DateFormat('d MMMM yyyy', 'ru_RU').format(image.dateTaken!)
+            : 'Неизвестно';
+    final timeTakenStr =
+        hasDateTaken ? DateFormat('HH:mm').format(image.dateTaken!) : '';
 
     // Дата создания файла с поправкой на МСК (+3 часа)
-    final fileCreated = File(image.file.path).lastModifiedSync().add(const Duration(hours: 3));
-    final fileCreatedStr = DateFormat('d MMMM yyyy', 'ru_RU').format(fileCreated);
+    final fileCreated = File(
+      image.file.path,
+    ).lastModifiedSync().add(const Duration(hours: 3));
+    final fileCreatedStr = DateFormat(
+      'd MMMM yyyy',
+      'ru_RU',
+    ).format(fileCreated);
     final fileTimeStr = DateFormat('HH:mm').format(fileCreated);
 
     // Есть ли координаты
     final hasCoordinates = image.latitude != null && image.longitude != null;
-
 
     return IgnorePointer(
       ignoring: false,
@@ -207,7 +347,6 @@ class PhotoInfoHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-
                 // Дата и время съемки
                 Text(
                   image.fileName,
@@ -239,7 +378,6 @@ class PhotoInfoHeader extends StatelessWidget {
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: Colors.black87,
-
                   ),
                 ),
 
@@ -282,5 +420,18 @@ class PhotoInfoHeader extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// Функция для открытия в других приложениях
+Future<void> _openInOtherApps(File imageFile) async {
+  try {
+    final String fileUri = 'file://${imageFile.path}';
+
+    if (!await launchUrl(Uri.parse(fileUri))) {
+      throw Exception('Не удалось открыть: $fileUri');
+    }
+  } on PlatformException {
+    throw "Failed to open";
   }
 }
