@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_cropper_aurora/image_cropper_aurora.dart';
 
 // Локальные импорты
 import '../providers/navigation_provider.dart';
@@ -44,14 +46,264 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
     });
   }
 
-  void _handleRename() {
-    // TODO: Реализовать переименование
-    debugPrint('Переименовать: ${widget.image.fileName}');
-  }
+  Future<void> _handleRename() async {
+  
+  final newName = await showDialog<String>(
+    context: context,
+    barrierColor: Color.fromARGB((0.05 * 255).round(), 0, 0, 0),
+    builder: (context) => SimpleRenameDialog(currentName: widget.image.fileName),
+  );
 
-  void _handleCrop() {
-    // TODO: Реализовать обрезку
-    debugPrint('Обрезать: ${widget.image.fileName}');
+  if (newName != null && newName != widget.image.fileName) {
+    _performRename(newName);
+  }
+}
+
+void _performRename(String newName) {
+
+  // TODO: Реализовать логику переименования файла
+  debugPrint('Переименовать в: $newName');
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('Файл переименован в: $newName'),
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
+
+
+
+  Future<void> _handleCrop() async {
+    try {
+      // Показываем индикатор загрузки
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Запускаем обрезку с настройками для Aurora OS
+      CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: widget.image.file.path,
+        compressFormat: ImageCompressFormat.jpg,
+        compressQuality: 100,
+
+        uiSettings: [
+          AuroraUiSettings(
+            context: context,
+
+            // === ЦВЕТА СЕТКИ ===
+
+            // Основной цвет сетки - зелёный
+            gridColor: Colors.green,
+
+            // Полупрозрачный светло-серый фон (почти белый)
+            scrimColor: const Color.fromARGB(150, 240, 240, 240),
+
+            // Внутренние линии сетки - более светлый зелёный
+            gridInnerColor: Colors.greenAccent.shade400,
+
+            // Уголки - яркий зелёный
+            gridCornerColor: Colors.green.shade700,
+
+            // === КНОПКИ ПОВОРОТА В СТИЛЕ CustomActionMenu ===
+            hasLeftRotation: true,
+            hasRightRotation: true,
+
+            rotateLeftIcon: Icon(
+              Icons.rotate_left,
+              size: 28,
+              color: Colors.white,
+              shadows: const [
+                Shadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(1, 1),
+                ),
+              ],
+            ),
+
+            rotateRightIcon: Icon(
+              Icons.rotate_right,
+              size: 28,
+              color: Colors.white,
+              shadows: const [
+                Shadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(1, 1),
+                ),
+              ],
+            ),
+
+            rotateLeftButtonStyle: ButtonStyle(
+              backgroundColor: WidgetStateProperty.all(Colors.black87),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(const EdgeInsets.all(16)),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              ),
+              elevation: WidgetStateProperty.all(4),
+              shadowColor: WidgetStateProperty.all(
+                const Color.fromARGB(89, 0, 0, 0),
+              ),
+              overlayColor: WidgetStateProperty.all(
+                Color.fromARGB((0.1 * 255).round(), 255, 255, 255),
+              ),
+            ),
+
+            rotateRightButtonStyle: ButtonStyle(
+              backgroundColor: WidgetStateProperty.all(Colors.black87),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(const EdgeInsets.all(16)),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              ),
+              elevation: WidgetStateProperty.all(4),
+              shadowColor: WidgetStateProperty.all(
+                const Color.fromARGB(89, 0, 0, 0),
+              ),
+              overlayColor: WidgetStateProperty.all(
+                Color.fromARGB((0.1 * 255).round(), 255, 255, 255),
+              ),
+            ),
+
+            // === КНОПКА СОХРАНЕНИЯ В СТИЛЕ CustomActionMenu ===
+            cropButtonText: const Text(
+              'Обрезать',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                shadows: [
+                  Shadow(
+                    color: Colors.black26,
+                    blurRadius: 8,
+                    offset: Offset(1, 1),
+                  ),
+                ],
+              ),
+            ),
+            cropButtonStyle: ButtonStyle(
+              backgroundColor: WidgetStateProperty.all(Colors.black87),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              ),
+              elevation: WidgetStateProperty.all(6),
+              shadowColor: WidgetStateProperty.all(
+                const Color.fromARGB(89, 0, 0, 0),
+              ),
+              textStyle: WidgetStateProperty.all(
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              overlayColor: WidgetStateProperty.all(
+                Color.fromARGB((0.1 * 255).round(), 255, 255, 255),
+              ),
+            ),
+
+            // === ФОН ДИАЛОГА С БЛЮРОМ КАК В SectionHeader ===
+            dialogBackgroundColor: const Color.fromARGB(200, 248, 249, 250),
+
+            // === ИНДИКАТОР ЗАГРУЗКИ ===
+            loadingPlaceholder: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color.fromARGB(25, 158, 158, 158),
+                    const Color.fromARGB(76, 158, 158, 158),
+                    const Color.fromARGB(25, 158, 158, 158),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: const Color.fromARGB(89, 255, 255, 255),
+                  width: 1,
+                ),
+              ),
+              child: const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                strokeWidth: 3,
+              ),
+            ),
+
+            // === НАСТРОЙКИ СЕТКИ ===
+            paddingSize: 16,
+            touchSize: 44,
+            gridCornerSize: 28,
+            showCorners: true,
+            gridThinWidth: 1.5,
+            gridThickWidth: 2.5,
+            alwaysShowThirdLines: true,
+            minimumImageSize: 80.0,
+
+            // === РАЗМЕРЫ ДИАЛОГА ===
+            dialogWidthScale: 0.95,
+            dialogHeightScale: 0.88,
+
+            // === ПУТЬ ФАЙЛА ===
+            showSourceImagePath: false, // Скрываем чтобы не портить дизайн
+          ),
+        ],
+      );
+
+      // Закрываем индикатор загрузки
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (croppedFile != null && mounted) {
+        // Создаем новый объект GalleryImage с обрезанным файлом
+        final croppedImage = widget.image.copyWith(
+          file: File(croppedFile.path),
+          fileName: 'cropped_${widget.image.fileName}',
+        );
+
+        // Показываем уведомление об успехе
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Фото успешно обрезано'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Переходим к просмотру обрезанного фото
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => PhotoViewScreen(
+                  image: croppedImage,
+                  previousIndex: widget.previousIndex,
+                ),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      // Закрываем индикатор загрузки в случае ошибки
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        // Показываем ошибку
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при обрезке: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      debugPrint('Error cropping image: $e\n$stackTrace');
+    }
   }
 
   void _handleSave() {
@@ -226,7 +478,6 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
   // Виджеты для режима РЕДАКТИРОВАНИЯ
   List<Widget> _buildEditMode() {
     return [
-      
       // Нижнее меню редактирования (показывается только в режиме редактирования)
       Positioned(
         bottom: 0,
@@ -278,6 +529,140 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
         ),
       ),
     ];
+  }
+
+}
+
+/// Класс для виджета переименования изображения
+class SimpleRenameDialog extends StatefulWidget {
+
+  final String currentName;
+
+  const SimpleRenameDialog({super.key, required this.currentName});
+
+  @override
+  State<SimpleRenameDialog> createState() => _SimpleRenameDialogState();
+}
+
+class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.currentName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color.fromARGB((0.1 * 255).round(), 128, 128, 128),
+                  Color.fromARGB((0.3 * 255).round(), 128, 128, 128),
+                  Color.fromARGB((0.1 * 255).round(), 128, 128, 128),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color.fromARGB((0.05 * 255).round(), 0, 0, 0),
+                  blurRadius: 4,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: Color.fromARGB((0.35 * 255).round(), 255, 255, 255),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+
+                // Заголовок в стиле SectionHeader
+                Text(
+                  'Новое имя',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                    color: Colors.black,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Поле ввода
+                TextField(
+                  controller: _controller,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                  style: const TextStyle(fontSize: 16),
+                  autofocus: true,
+                ),
+
+                const SizedBox(height: 20),
+
+                // Кнопки
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text('Отмена'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, _controller.text),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'ОК',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -423,7 +808,9 @@ class PhotoInfoHeader extends StatelessWidget {
   }
 }
 
-// Функция для открытия в других приложениях
+
+
+// Функция для открытия изображения в других приложениях
 Future<void> _openInOtherApps(File imageFile) async {
   try {
     final String fileUri = 'file://${imageFile.path}';

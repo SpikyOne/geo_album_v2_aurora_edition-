@@ -32,6 +32,28 @@ class GalleryImage {
     required this.folderName,
   });
 
+
+
+
+  // Метод для создания копии с изменёнными полями
+  GalleryImage copyWith({
+    File? file,
+    String? fileName,
+    DateTime? dateTaken,
+    double? latitude,
+    double? longitude,
+    String? folderName,
+  }) {
+    return GalleryImage(
+      file: file ?? this.file,
+      fileName: fileName ?? this.fileName,
+      dateTaken: dateTaken ?? this.dateTaken,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      folderName: folderName ?? this.folderName,
+    );
+  }
+
   @override
   String toString() {
     return 'GalleryImage(\n'
