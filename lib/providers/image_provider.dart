@@ -7,8 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import '../models/image_data_model.dart';
 import '../services/exif_loader.dart';
 
-
-
 /// Класс сервиса загрузки и кеширования изображений с использованием ChangeNotifier
 class GalleryProvider extends ChangeNotifier {
   GalleryProvider._privateConstructor();
@@ -26,6 +24,146 @@ class GalleryProvider extends ChangeNotifier {
   bool get loadError => _loadError;
   bool get initialized => _initialized;
 
+  /// Универсальный метод для обновления изображения
+  Future<bool> updateImage(GalleryImage oldImage, GalleryImage newImage) async {
+    try {
+      // Удаляем старый кеш по старому пути
+      _memoryCache.remove(oldImage.file.path);
+
+      // Добавляем новый кеш по новому пути
+      _memoryCache[newImage.file.path] = newImage;
+
+      // Находим и заменяем в списке по пути файла
+      final index = _images.indexWhere(
+        (img) => img.file.path == oldImage.file.path,
+      );
+
+      if (index != -1) {
+        _images[index] = newImage;
+        debugPrint('Изображение обновлено в списке: ${newImage.file.path}');
+      } else {
+        debugPrint(
+          'Изображение не найдено в списке для обновления: ${oldImage.file.path}',
+        );
+        return false;
+      }
+
+      debugPrint(newImage.toString());
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Ошибка обновления изображения: $e');
+      return false;
+    }
+  }
+
+  /// Переименование файла
+  Future<bool> renameImage(GalleryImage oldImage, String newFileName) async {
+    try {
+      final File oldFile = oldImage.file;
+      final String oldPath = oldFile.path;
+      final String directory = p.dirname(oldPath);
+      final String newPath = p.join(directory, newFileName);
+
+      if (await File(newPath).exists()) {
+        debugPrint('Файл с именем $newFileName уже существует');
+        return false;
+      }
+
+      await oldFile.rename(newPath);
+
+      final newImage = oldImage.copyWith(
+        file: File(newPath),
+        fileName: newFileName,
+      );
+
+      return await updateImage(oldImage, newImage);
+    } catch (e) {
+      debugPrint('Ошибка переименования файла: $e');
+      return false;
+    }
+  }
+
+  /// Сохранение обрезанного изображения (замещает оригинал)
+  Future<bool> saveCroppedImage(
+    GalleryImage originalImage,
+    File croppedFile,
+  ) async {
+    try {
+      final originalPath = originalImage.file.path;
+
+      // Сохраняем метаданные ДО удаления оригинала
+      final metadata = await ExifLoader.extractExif(originalImage.file);
+
+      // Создаем уникальное временное имя для избежания кеширования
+      final tempDir = Directory.systemTemp;
+      final tempPath =
+          '${tempDir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      // Копируем обрезанный файл в системную временную директорию
+      await croppedFile.copy(tempPath);
+
+      // Удаляем оригинальный файл
+      if (await File(originalPath).exists()) {
+        await File(originalPath).delete();
+      }
+
+      // Даем время файловой системе на обработку удаления
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Копируем обрезанный файл из временной директории на место оригинала
+      await File(tempPath).copy(originalPath);
+
+      // Удаляем временные файлы
+      if (await File(tempPath).exists()) {
+        await File(tempPath).delete();
+      }
+      if (await croppedFile.exists()) {
+        await croppedFile.delete();
+      }
+
+      // Создаем новый объект File и принудительно обновляем его состояние
+      final newFile = File(originalPath);
+
+      // Принудительно обновляем метаданные файла
+      await newFile.stat();
+
+      // Создаем новое изображение с сохраненными метаданными
+      final newImage = GalleryImage(
+        file: newFile,
+        fileName: originalImage.fileName,
+        dateTaken: metadata['date'] ?? originalImage.dateTaken,
+        latitude: metadata['lat'] ?? originalImage.latitude,
+        longitude: metadata['lon'] ?? originalImage.longitude,
+        folderName: originalImage.folderName,
+      );
+
+      debugPrint('Обрезанное изображение сохранено: $originalPath');
+
+      // Принудительно обновляем провайдер
+      final success = await updateImage(originalImage, newImage);
+
+      if (success) {
+        // Принудительно обновляем весь список
+        notifyListeners();
+      }
+
+      return success;
+    } catch (e) {
+      debugPrint('Ошибка сохранения обрезанного изображения: $e');
+      return false;
+    }
+  }
+
+  /// Метод для принудительного обновления галереи после первичной инициализации
+  Future<void> refreshGallery({String? dirPath}) async {
+    _loading = true;
+    _loadError = false;
+    notifyListeners();
+
+    await _loadImages(dirPath: dirPath, clearCache: true);
+  }
 
   /// Инициализация галереи: проверка разрешений + загрузка
   Future<void> initGallery({String? dirPath}) async {
@@ -37,30 +175,37 @@ class GalleryProvider extends ChangeNotifier {
 
     await _loadImages(dirPath: dirPath);
     _initialized = true;
-
   }
 
   /// Методы получения изображений из директории (рекурсивно)
-  Future<void> _loadImages({String? dirPath}) async {
+  Future<void> _loadImages({String? dirPath, bool clearCache = false}) async {
     try {
-
       _loading = true;
       _loadError = false;
       notifyListeners();
 
-      // Определение сканируемой директории с изображениями (по умолчанию Pictures)
-      Directory directory;
-      if (dirPath != null) { directory = Directory(dirPath); }
-      
-      else {
-        
-        final List<Directory>? picturesDirs = await getExternalStorageDirectories( type: StorageDirectory.pictures, );
-      
-        if (picturesDirs == null || picturesDirs.isEmpty) { throw Exception('Could not access Pictures directory'); }
-      
-        directory = picturesDirs[0];
+      // Очищаем кеш при принудительном обновлении
+      if (clearCache) {
+        _images.clear();
+        _memoryCache.clear();
       }
 
+      // Определение сканируемой директории с изображениями (по умолчанию Pictures)
+      Directory directory;
+      if (dirPath != null) {
+        directory = Directory(dirPath);
+      } else {
+        final List<Directory>? picturesDirs =
+            await getExternalStorageDirectories(
+              type: StorageDirectory.pictures,
+            );
+
+        if (picturesDirs == null || picturesDirs.isEmpty) {
+          throw Exception('Could not access Pictures directory');
+        }
+
+        directory = picturesDirs[0];
+      }
 
       if (!await directory.exists()) {
         _images.clear();
@@ -69,15 +214,20 @@ class GalleryProvider extends ChangeNotifier {
         return;
       }
 
-      _images.clear();
+      // Только при первичной загрузке очищаем список
+      if (!clearCache) {
+        _images.clear();
+      }
 
       // Поиск изображений
-      await for (var entity in directory.list(recursive: true, followLinks: false)) {
+      await for (var entity in directory.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File &&
             (entity.path.toLowerCase().endsWith('.jpg') ||
                 entity.path.toLowerCase().endsWith('.jpeg') ||
                 entity.path.toLowerCase().endsWith('.png'))) {
-
           final metadata = await ExifLoader.extractExif(entity);
           final folderName = p.basename(p.dirname(entity.path));
 
@@ -104,7 +254,6 @@ class GalleryProvider extends ChangeNotifier {
 
       _loading = false;
       notifyListeners();
-
     } catch (e) {
       debugPrint('Ошибка загрузки изображений: $e');
       _images.clear();
@@ -113,5 +262,4 @@ class GalleryProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-
 }

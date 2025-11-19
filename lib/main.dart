@@ -6,18 +6,17 @@ import 'package:provider/provider.dart';
 // Локальные импорты
 import '../app.dart';
 import '../providers/image_provider.dart';
-
+import 'plugins/image_cropper_registrar.dart';
 
 
 void main() async {
 
-
   await initializeDateFormatting('ru_RU', null);
 
   WidgetsFlutterBinding.ensureInitialized();
+  ImageCropperRegistrar.register();
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-
 
   // Сразу инициализируем провайдер
   await GalleryProvider.instance.initGallery();

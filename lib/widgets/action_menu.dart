@@ -45,7 +45,7 @@ class CustomActionMenu extends StatelessWidget {
       child: Padding(
 
         padding: EdgeInsets.only(
-          bottom: isHorizontal ? MediaQuery.of(context).padding.bottom + 32 : 0,
+          bottom: isHorizontal ? MediaQuery.of(context).padding.bottom + 14 : 0,
           right: isHorizontal ? 0 : 4,
         ),
 

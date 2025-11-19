@@ -20,6 +20,12 @@ dependencies:
   provider: ^6.0.0
   intl: any
   path_provider: ^2.1.1
+  url_launcher: ^6.3.2
+  image_cropper: ^9.1.0
+  image_cropper_aurora:
+    git:
+      url: https://developer.auroraos.ru/git/flutter/flutter-community-plugins/image_cropper_aurora.git
+
 
 dev_dependencies:
   flutter_test:

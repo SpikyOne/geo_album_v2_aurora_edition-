@@ -12,6 +12,7 @@ Source0: %{name}-%{version}.tar.zst
 
 BuildRequires: cmake
 BuildRequires: ninja
+BuildRequires: pkgconfig(Qt5Core)
 
 %description
 %{summary}.
