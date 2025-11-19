@@ -14,6 +14,9 @@ import '../providers/navigation_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../models/image_data_model.dart';
 import '../widgets/action_menu.dart';
+import '../providers/image_provider.dart';
+
+
 
 // Класс виджета просмотра фотографии
 class PhotoViewScreen extends StatefulWidget {
@@ -59,17 +62,68 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
   }
 }
 
-void _performRename(String newName) {
+Future<void> _performRename(String newName) async {
+  try {
+    // Показываем индикатор загрузки
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
 
-  // TODO: Реализовать логику переименования файла
-  debugPrint('Переименовать в: $newName');
-  
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text('Файл переименован в: $newName'),
-      duration: const Duration(seconds: 2),
-    ),
-  );
+    // Получаем провайдер и переименовываем файл
+    final galleryProvider = Provider.of<GalleryProvider>(context, listen: false);
+    final success = await galleryProvider.renameImage(widget.image, newName);
+
+    // Закрываем индикатор
+    if (mounted) Navigator.of(context).pop();
+
+    if (success && mounted) {
+      // Получаем обновленное изображение
+      final updatedImage = galleryProvider.images.firstWhere(
+        (img) => img.fileName == newName,
+        orElse: () => widget.image.copyWith(fileName: newName),
+      );
+
+      // Показываем уведомление об успехе
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Файл переименован в: $newName'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Переходим к просмотру обновленного фото
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PhotoViewScreen(
+            image: updatedImage,
+            previousIndex: widget.previousIndex,
+          ),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ошибка переименования файла'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) Navigator.of(context).pop();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Ошибка: $e'),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    debugPrint('Ошибка переименования: $e');
+  }
 }
 
 
@@ -535,7 +589,6 @@ void _performRename(String newName) {
 
 /// Класс для виджета переименования изображения
 class SimpleRenameDialog extends StatefulWidget {
-
   final String currentName;
 
   const SimpleRenameDialog({super.key, required this.currentName});
@@ -546,12 +599,52 @@ class SimpleRenameDialog extends StatefulWidget {
 
 class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
   late TextEditingController _controller;
+  String? _errorText;
+  late String _fileExtension;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.currentName);
+    // Получаем расширение файла
+    _fileExtension = _getFileExtension(widget.currentName);
+    // Убираем расширение из имени для редактирования
+    final fileNameWithoutExtension = _removeFileExtension(widget.currentName);
+    _controller = TextEditingController(text: fileNameWithoutExtension);
+    
+    // Слушаем изменения текста для валидации
+    _controller.addListener(_validateInput);
   }
+
+  String _getFileExtension(String fileName) {
+    final dotIndex = fileName.lastIndexOf('.');
+    return dotIndex != -1 ? fileName.substring(dotIndex) : '';
+  }
+
+  String _removeFileExtension(String fileName) {
+    final dotIndex = fileName.lastIndexOf('.');
+    return dotIndex != -1 ? fileName.substring(0, dotIndex) : fileName;
+  }
+
+  void _validateInput() {
+    final text = _controller.text.trim();
+    setState(() {
+      if (text.isEmpty) {
+        _errorText = 'Имя не может быть пустым';
+      } else if (text.contains('/') || text.contains('\\') || text.contains(':') || 
+                 text.contains('*') || text.contains('?') || text.contains('"') || 
+                 text.contains('<') || text.contains('>') || text.contains('|')) {
+        _errorText = 'Имя содержит недопустимые символы';
+      } else {
+        _errorText = null;
+      }
+    });
+  }
+
+  String _getFullFileName() {
+    return '${_controller.text.trim()}$_fileExtension';
+  }
+
+  bool get _isValid => _errorText == null && _controller.text.trim().isNotEmpty;
 
   @override
   void dispose() {
@@ -594,7 +687,6 @@ class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-
                 // Заголовок в стиле SectionHeader
                 Text(
                   'Новое имя',
@@ -620,11 +712,52 @@ class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: _errorText != null ? Colors.red : Colors.grey,
+                        width: _errorText != null ? 2 : 1,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: _errorText != null ? Colors.red : Colors.grey,
+                        width: _errorText != null ? 2 : 1,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: _errorText != null ? Colors.red : Colors.blue,
+                        width: _errorText != null ? 2 : 2,
+                      ),
+                    ),
+                    errorText: _errorText,
+                    errorStyle: const TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w500,
                     ),
                     contentPadding: const EdgeInsets.all(16),
+                    suffixText: _fileExtension,
+                    suffixStyle: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   style: const TextStyle(fontSize: 16),
                   autofocus: true,
+                  onChanged: (_) => _validateInput(),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Подсказка с расширением
+                Text(
+                  'Расширение файла: $_fileExtension',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
 
                 const SizedBox(height: 20),
@@ -644,9 +777,9 @@ class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context, _controller.text),
+                        onPressed: _isValid ? () => Navigator.pop(context, _getFullFileName()) : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black87,
+                          backgroundColor: _isValid ? Colors.black87 : Colors.grey,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: const Text(
