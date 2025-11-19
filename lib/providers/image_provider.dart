@@ -24,7 +24,41 @@ class GalleryProvider extends ChangeNotifier {
   bool get loadError => _loadError;
   bool get initialized => _initialized;
 
-  /// Переименование файла изображения
+  /// Универсальный метод для обновления изображения
+  Future<bool> updateImage(GalleryImage oldImage, GalleryImage newImage) async {
+    try {
+      // Удаляем старый кеш по старому пути
+      _memoryCache.remove(oldImage.file.path);
+
+      // Добавляем новый кеш по новому пути
+      _memoryCache[newImage.file.path] = newImage;
+
+      // Находим и заменяем в списке по пути файла
+    final index = _images.indexWhere(
+      (img) => img.file.path == oldImage.file.path,
+    );
+
+    if (index != -1) {
+      _images[index] = newImage;
+      debugPrint('Изображение обновлено в списке: ${newImage.file.path}');
+    } else {
+      debugPrint('Изображение не найдено в списке для обновления: ${oldImage.file.path}');
+      return false;
+    }
+
+      debugPrint(newImage.toString());
+
+      notifyListeners();
+      return true;
+
+      
+    } catch (e) {
+      debugPrint('Ошибка обновления изображения: $e');
+      return false;
+    }
+  }
+
+  /// Переименование файла
   Future<bool> renameImage(GalleryImage oldImage, String newFileName) async {
     try {
       final File oldFile = oldImage.file;
@@ -32,39 +66,58 @@ class GalleryProvider extends ChangeNotifier {
       final String directory = p.dirname(oldPath);
       final String newPath = p.join(directory, newFileName);
 
-      // Проверяем, не существует ли уже файл с таким именем
       if (await File(newPath).exists()) {
         debugPrint('Файл с именем $newFileName уже существует');
         return false;
       }
 
-      // Переименовываем файл
       await oldFile.rename(newPath);
 
-      // Обновляем кеш и список изображений
-      _memoryCache.remove(oldPath);
-
-      final newImage = GalleryImage(
+      final newImage = oldImage.copyWith(
         file: File(newPath),
         fileName: newFileName,
-        dateTaken: oldImage.dateTaken,
-        latitude: oldImage.latitude,
-        longitude: oldImage.longitude,
-        folderName: oldImage.folderName,
       );
 
-      _memoryCache[newPath] = newImage;
-
-      // Находим и заменяем изображение в списке
-      final index = _images.indexWhere((img) => img.file.path == oldPath);
-      if (index != -1) {
-        _images[index] = newImage;
-      }
-
-      notifyListeners();
-      return true;
+      return await updateImage(oldImage, newImage);
     } catch (e) {
       debugPrint('Ошибка переименования файла: $e');
+      return false;
+    }
+  }
+
+  /// Сохранение обрезанного изображения (замещает оригинал)
+  Future<bool> saveCroppedImage(
+    GalleryImage originalImage,
+    File croppedFile,
+  ) async {
+    try {
+      // Сохраняем оригинальный путь
+      final originalPath = originalImage.file.path;
+
+      // Удаляем оригинальный файл
+    if (await File(originalPath).exists()) {
+      await File(originalPath).delete();
+    }
+
+    // Перемещаем обрезанный файл на место оригинала
+    await croppedFile.rename(originalPath);
+
+    // Создаем новый объект File с обновленным содержимым
+    final newFile = File(originalPath);
+
+      // Обновляем изображение в кеше с актуальными метаданными
+      final newImage = GalleryImage(
+        file: newFile,
+        fileName: originalImage.fileName,
+        dateTaken: originalImage.dateTaken,
+        latitude: originalImage.latitude,
+        longitude: originalImage.longitude,
+        folderName: originalImage.folderName,
+      );
+
+      return await updateImage(originalImage, newImage);
+    } catch (e) {
+      debugPrint('Ошибка сохранения обрезанного изображения: $e');
       return false;
     }
   }

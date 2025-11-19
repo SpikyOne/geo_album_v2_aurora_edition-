@@ -18,7 +18,6 @@ void main() async {
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-
   // Сразу инициализируем провайдер
   await GalleryProvider.instance.initGallery();
 

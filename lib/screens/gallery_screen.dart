@@ -37,6 +37,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
   // Максимум колонок
   static const int _maxColumns = 8;
 
+  // Ключ для RefreshIndicator
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
+
+  // Метод для обновления данных
+  Future<void> _refreshGallery() async {
+    final galleryProvider = Provider.of<GalleryProvider>(context, listen: false);
+    await galleryProvider.initGallery();
+  }
+
+
   @override
   void initState() {
     super.initState();
@@ -163,6 +174,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 16, left: 8, right: 8),
 
+      child: RefreshIndicator(
+      key: _refreshIndicatorKey,
+      onRefresh: _refreshGallery,
       child: SingleChildScrollView(
         child: Column(
           children: [
@@ -232,6 +246,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ],
 
         ),
+      ),
       ),
     );
   }

@@ -16,8 +16,6 @@ import '../models/image_data_model.dart';
 import '../widgets/action_menu.dart';
 import '../providers/image_provider.dart';
 
-
-
 // Класс виджета просмотра фотографии
 class PhotoViewScreen extends StatefulWidget {
   final GalleryImage image;
@@ -50,85 +48,19 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
   }
 
   Future<void> _handleRename() async {
-  
-  final newName = await showDialog<String>(
-    context: context,
-    barrierColor: Color.fromARGB((0.05 * 255).round(), 0, 0, 0),
-    builder: (context) => SimpleRenameDialog(currentName: widget.image.fileName),
-  );
-
-  if (newName != null && newName != widget.image.fileName) {
-    _performRename(newName);
-  }
-}
-
-Future<void> _performRename(String newName) async {
-  try {
-    // Показываем индикатор загрузки
-    showDialog(
+    final newName = await showDialog<String>(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      barrierColor: Color.fromARGB((0.05 * 255).round(), 0, 0, 0),
+      builder:
+          (context) => SimpleRenameDialog(currentName: widget.image.fileName),
     );
 
-    // Получаем провайдер и переименовываем файл
-    final galleryProvider = Provider.of<GalleryProvider>(context, listen: false);
-    final success = await galleryProvider.renameImage(widget.image, newName);
-
-    // Закрываем индикатор
-    if (mounted) Navigator.of(context).pop();
-
-    if (success && mounted) {
-      // Получаем обновленное изображение
-      final updatedImage = galleryProvider.images.firstWhere(
-        (img) => img.fileName == newName,
-        orElse: () => widget.image.copyWith(fileName: newName),
-      );
-
-      // Показываем уведомление об успехе
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Файл переименован в: $newName'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
-      // Переходим к просмотру обновленного фото
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PhotoViewScreen(
-            image: updatedImage,
-            previousIndex: widget.previousIndex,
-          ),
-        ),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ошибка переименования файла'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 2),
-        ),
-      );
+    if (newName != null && newName != widget.image.fileName) {
+      _performRename(newName);
     }
-  } catch (e) {
-    if (mounted) Navigator.of(context).pop();
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ошибка: $e'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-    debugPrint('Ошибка переименования: $e');
   }
-}
 
-
-
-  Future<void> _handleCrop() async {
+  Future<void> _performRename(String newName) async {
     try {
       // Показываем индикатор загрузки
       showDialog(
@@ -137,14 +69,77 @@ Future<void> _performRename(String newName) async {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Получаем провайдер и переименовываем файл
+      final galleryProvider = Provider.of<GalleryProvider>(
+        context,
+        listen: false,
+      );
+      final success = await galleryProvider.renameImage(widget.image, newName);
 
-      // Запускаем обрезку с настройками для Aurora OS
+      // Закрываем индикатор
+      if (mounted) Navigator.of(context).pop();
+
+      if (success && mounted) {
+        // Получаем обновленное изображение
+        final updatedImage = galleryProvider.images.firstWhere(
+          (img) => img.fileName == newName,
+          orElse: () => widget.image.copyWith(fileName: newName),
+        );
+
+        // Показываем уведомление об успехе
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Файл переименован в: $newName'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // Переходим к просмотру обновленного фото
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => PhotoViewScreen(
+                  image: updatedImage,
+                  previousIndex: widget.previousIndex,
+                ),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ошибка переименования файла'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      debugPrint('Ошибка переименования: $e');
+    }
+  }
+
+  Future<void> _handleCrop() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
       CroppedFile? croppedFile = await ImageCropper().cropImage(
         sourcePath: widget.image.file.path,
         compressFormat: ImageCompressFormat.jpg,
         compressQuality: 100,
-
         uiSettings: [
           AuroraUiSettings(
             context: context,
@@ -310,67 +305,82 @@ Future<void> _performRename(String newName) async {
         ],
       );
 
-      // Закрываем индикатор загрузки
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
       if (croppedFile != null && mounted) {
-        // Создаем новый объект GalleryImage с обрезанным файлом
-        final croppedImage = widget.image.copyWith(
-          file: File(croppedFile.path),
-          fileName: 'cropped_${widget.image.fileName}',
+        final galleryProvider = Provider.of<GalleryProvider>(
+          context,
+          listen: false,
         );
 
-        // Показываем уведомление об успехе
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        final success = await galleryProvider.saveCroppedImage(
+          widget.image,
+          File(croppedFile.path),
+        );
+
+        if (mounted) Navigator.of(context).pop();
+
+        if (success && mounted) {
+
+          await Future.delayed(const Duration(milliseconds: 50));
+
+          // Получаем обновленное изображение из провайдера
+          final updatedImages = galleryProvider.images.where(
+          (img) => img.file.path == widget.image.file.path
+        ).toList();
+        
+        if (updatedImages.isNotEmpty) {
+          final updatedImage = updatedImages.first;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Фото успешно обрезано'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => PhotoViewScreen(
+                    image: updatedImage,
+                    previousIndex: widget.previousIndex,
+                  ),
+            ),
+          );
+        } else {
+          throw Exception('Обновленное изображение не найдено');
+        }
+        }
+        else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Фото успешно обрезано'),
+            content: Text('Ошибка при сохранении обрезанного фото'),
+            backgroundColor: Colors.red,
             duration: Duration(seconds: 2),
           ),
         );
-
-        // Переходим к просмотру обрезанного фото
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => PhotoViewScreen(
-                  image: croppedImage,
-                  previousIndex: widget.previousIndex,
-                ),
-          ),
-        );
-      }
-    } catch (e, stackTrace) {
-      // Закрываем индикатор загрузки в случае ошибки
-      if (mounted) {
+        }
+      } else if (mounted) {
         Navigator.of(context).pop();
-
-        // Показываем ошибку
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка при обрезке: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
       }
-      debugPrint('Error cropping image: $e\n$stackTrace');
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка при обрезке: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      debugPrint('Error cropping image: $e');
     }
   }
 
-  void _handleSave() {
-    // TODO: Реализовать сохранение
-    debugPrint('Сохранить: ${widget.image.fileName}');
-    _toggleEditMode(); // Выходим из режима редактирования после сохранения
-  }
-
-  // Обработка тапа по экрану (только в режиме просмотра)
-  void _handleScreenTap() {
-    if (!_isEditing) {
-      setState(() => _uiVisible = !_uiVisible);
-    }
+  void _handleExit() {
+    _toggleEditMode(); // Выходим из режима редактирования
   }
 
   @override
@@ -573,8 +583,8 @@ Future<void> _performRename(String newName) async {
                 items: [
                   MenuItem(
                     Icons.save_rounded,
-                    label: 'Сохранить',
-                    onTap: _handleSave,
+                    label: 'Выход',
+                    onTap: _handleExit,
                   ),
                 ],
               ),
@@ -584,7 +594,6 @@ Future<void> _performRename(String newName) async {
       ),
     ];
   }
-
 }
 
 /// Класс для виджета переименования изображения
@@ -610,7 +619,7 @@ class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
     // Убираем расширение из имени для редактирования
     final fileNameWithoutExtension = _removeFileExtension(widget.currentName);
     _controller = TextEditingController(text: fileNameWithoutExtension);
-    
+
     // Слушаем изменения текста для валидации
     _controller.addListener(_validateInput);
   }
@@ -627,12 +636,19 @@ class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
 
   void _validateInput() {
     final text = _controller.text.trim();
+
     setState(() {
       if (text.isEmpty) {
         _errorText = 'Имя не может быть пустым';
-      } else if (text.contains('/') || text.contains('\\') || text.contains(':') || 
-                 text.contains('*') || text.contains('?') || text.contains('"') || 
-                 text.contains('<') || text.contains('>') || text.contains('|')) {
+      } else if (text.contains('/') ||
+          text.contains('\\') ||
+          text.contains(':') ||
+          text.contains('*') ||
+          text.contains('?') ||
+          text.contains('"') ||
+          text.contains('<') ||
+          text.contains('>') ||
+          text.contains('|')) {
         _errorText = 'Имя содержит недопустимые символы';
       } else {
         _errorText = null;
@@ -748,38 +764,35 @@ class _SimpleRenameDialogState extends State<SimpleRenameDialog> {
                   onChanged: (_) => _validateInput(),
                 ),
 
-                const SizedBox(height: 8),
-
-                // Подсказка с расширением
-                Text(
-                  'Расширение файла: $_fileExtension',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-
-                const SizedBox(height: 20),
+                const SizedBox(height: 28),
 
                 // Кнопки
                 Row(
                   children: [
                     Expanded(
-                      child: TextButton(
+                      child: ElevatedButton(
                         onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black12,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        child: const Text('Отмена'),
+                        child: const Text(
+                          'Отмена',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _isValid ? () => Navigator.pop(context, _getFullFileName()) : null,
+                        onPressed:
+                            _isValid
+                                ? () =>
+                                    Navigator.pop(context, _getFullFileName())
+                                : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _isValid ? Colors.black87 : Colors.grey,
+                          backgroundColor:
+                              _isValid ? Colors.black87 : Colors.grey,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: const Text(
@@ -940,8 +953,6 @@ class PhotoInfoHeader extends StatelessWidget {
     );
   }
 }
-
-
 
 // Функция для открытия изображения в других приложениях
 Future<void> _openInOtherApps(File imageFile) async {
